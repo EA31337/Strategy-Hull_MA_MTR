@@ -28,7 +28,6 @@ repos:
       - id: git-check     # Configure in .gitattributes
       - id: markdownlint  # Configure in .mdlrc
       - id: require-ascii
-        exclude: Indi_Hull_MA_MTR.mq4
       - id: script-must-have-extension
       # - id: shellcheck
       - id: shfmt

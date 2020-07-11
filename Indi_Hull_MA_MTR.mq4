@@ -1,18 +1,19 @@
 //+++======================================================================+++
 //+++                      Hull Master 22 Next MTF                         +++
 //+++======================================================================+++
-#property copyright   "©  www.forex-tsd.com  &&  Tankk,  8  October  2018,  http://forexsystemsru.com"
+#property copyright   "www.forex-tsd.com && Tankk, 8 October 2018, http://forexsystemsru.com"
 #property link        "https://forexsystemsru.com/threads/indikatory-sobranie-sochinenij-tankk.86203/page-7#post-1350217"
-#property description "Скользящая средняя Хала [HullMA] почти устраняет задержку в целом, и в то же самое"
-#property description "время улучшает сглаживание. HullMA умеет не отставать от быстрых изменений ценовой"
-#property description "динамики при наличии превосходного сглаживания SMA за тот же самый период."
-#property version  "3.39"  //из "2.22"
-//#property strict
+
+#property description "HullMA's almost eliminates the delay as a whole with improved smoothing."
+#property description "It efficiently knows how to keep up with fast price changes."
+#property description "The dynamics with excellent SMA smoothing for the same period."
+#property version  "3.39" // Previous: "2.22"
+
 #property indicator_chart_window
 #property indicator_buffers 2
 //------
 #property indicator_color1  clrLimeGreen
-#property indicator_color2  clrRed  //Crimson
+#property indicator_color2  clrRed  // Crimson
 //------
 #property indicator_width1  2
 #property indicator_width2  2
@@ -46,7 +47,7 @@ extern int               LinesSize  =  2;
 extern color               ColorUP  =  clrAqua;  //Blue;
 extern color              ColorDN   =  clrMagenta;  //Black;
 
-extern int               SIGNALBAR  =  1;   //На каком баре сигналить....
+extern int               SIGNALBAR  =  1; // On which bar to signal...
 extern bool          AlertsMessage  =  true,   //false,
                        AlertsSound  =  true,   //false,
                        AlertsEmail  =  false,
@@ -92,7 +93,7 @@ int init()
         SetIndexStyle(i,DRAW_LINE);
         //SetIndexShift(i,HMAShift*MTF/_Period); }
 
-//------ "короткое имя" для DataWindow и подокна индикатора + и/или "уникальное имя индикатора"
+//------ "short name" for DataWindow and indicator + subwindow and/or "unique indicator name".
    IndicatorShortName(stringMTF(MTF)+": HMA M22 ["+(string)HMAPeriod+"*"+DoubleToStr(HMASpeed,1)+"*"+DoubleToStr(HMAHot,1)+"]");
    //------
    if (UniqueID!="") PREF = UniqueID;
@@ -126,10 +127,10 @@ int start()
          if (returnBars) { hma[0] = fmin(limit+1,Bars-1); return(0); }
    //---
    for (i=0; i<5; i++) {
-        SetIndexEmptyValue(i,0.0);             //--- значение 0 отображаться не будет
-        SetIndexEmptyValue(i,EMPTY_VALUE);     //--- значение 0 отображаться не будет
-        SetIndexShift(i,HMAShift*MTF/_Period); //--- установка сдвига линий при отрисовке
-        SetIndexDrawBegin(i,MAX*1); }          //--- пропуск отрисовки первых баров
+        SetIndexEmptyValue(i,0.0); //--- value 0 will not be displayed
+        SetIndexEmptyValue(i,EMPTY_VALUE); //--- value 0 will not be displayed
+        SetIndexShift(i,HMAShift*MTF/_Period); //--- setting line shift when drawing
+        SetIndexDrawBegin(i,MAX*1); } //--- skip drawing the first bars
 //**************************************************************************//
 //**************************************************************************//
 
@@ -195,7 +196,7 @@ int start()
            if (AlertsMobile)  SendNotification(messageDN);
            if (AlertsSound)   PlaySound(SoundFile);   //"stops.wav"   //"news.wav"   //"alert2.wav"  //"expert.wav"
            TimeBar=Time[0]; } //return(0);
-      } //*конец* Алертов
+      } // *end* Alert.
 //**************************************************************************//
      return(0);
     }
@@ -214,10 +215,10 @@ int start()
         hma[i]   = iCustom(NULL,MTF,IndikName,PERIOD_CURRENT,MTF,Interpolate,HMAPeriod,HMAPrice,HMASpeed,HMAHot,0,UniqueID,LinesNumber,LinesShift,RayRight,LinesSize,ColorUP,ColorDN,SIGNALBAR,AlertsMessage,AlertsSound,AlertsEmail,AlertsMobile,SoundFile,0,0,y);
         hmada[i] = EMPTY_VALUE;
         hmadb[i] = EMPTY_VALUE;
-   //------  ////"новый вариант" от mladen'a == Quadratic лучше сглаживает....
+   //------  //// "new version" of mladen's  == Quadratic smoothes better...
       if (Interpolate==0 || (i>0 && y==iBarShift(NULL,MTF,Time[i-1]))) continue;
           interpolate(hma,MTF,Interpolate,i);
-    } //*конец цикла* for (i=limit; i>=0; i--)
+    } // *end of cycle*  for (i=limit; i>=0; i--)
 //**************************************************************************//
 
    for (i=limit; i>=0; i--)  if (trend[i]==-1) PlotPoint(i,hmada,hmadb,hma);
@@ -264,7 +265,7 @@ void PlotPoint(int i,double& first[],double& second[],double& from[])
 //***                   SSA on T3 SSL 4C AA MTF TT [MK]                    ***
 //**************************************************************************//
 void interpolate(double& target[], int interTF, int interType, int i)
-{ ////взято из Step one more Average 2-3 MTF [garry119]    ////enum Iterpolation { intNO, intLinear, intQuad };
+{ //// Taken from Step one more Average 2-3 MTF [garry119]    ////enum Iterpolation { intNO, intLinear, intQuad };
    int bar = iBarShift(NULL,interTF,Time[i]);
    double x0=0, x1=1, x2=2, y0=0, y1=0, y2=0;
 //------
@@ -329,10 +330,10 @@ string stringMTF(int perMTF)
    if (perMTF==1440)   return("D1");
    if (perMTF==10080)  return("W1");
    if (perMTF==43200)  return("MN1");
-   if (perMTF== 2 || 3  || 4  || 6  || 7  || 8  || 9 ||       /// нестандартные периоды для грфиков Renko
+   if (perMTF== 2 || 3  || 4  || 6  || 7  || 8  || 9 ||       /// Off the beaten track Renko.
                10 || 11 || 12 || 13 || 14 || 16 || 17 || 18)  return("M"+(string)_Period);
 //------
-   return("Period error!");   //return("Ошибка периода");
+   return("Period error!");
 }
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 //%%%                            StochMC AA MTF TT                         %%%
