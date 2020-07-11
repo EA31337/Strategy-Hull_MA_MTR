@@ -2,11 +2,11 @@
 //+++                      Hull Master 22 Next MTF                         +++
 //+++======================================================================+++
 #property copyright   "©  www.forex-tsd.com  &&  Tankk,  8  October  2018,  http://forexsystemsru.com"
-#property link        "https://forexsystemsru.com/indikatory-foreks/86203-indikatory-sobranie-sochinenii-tankk.html"   ///"http://www.fxmag.ru/mag/104/"
+#property link        "https://forexsystemsru.com/threads/indikatory-sobranie-sochinenij-tankk.86203/"  ////https://forexsystemsru.com/forums/indikatory-foreks.41/   ///"http://www.fxmag.ru/mag/104/"
 #property description "Скользящая средняя Хала [HullMA] почти устраняет задержку в целом, и в то же самое"
 #property description "время улучшает сглаживание. HullMA умеет не отставать от быстрых изменений ценовой"
 #property description "динамики при наличии превосходного сглаживания SMA за тот же самый период."
-#property version  "2.22"
+#property version  "3.39"  //из "2.22"
 //#property strict
 #property indicator_chart_window
 #property indicator_buffers 2
@@ -35,6 +35,7 @@ extern Iterpolation    Interpolate  =  intQuad;  //true;
 extern int               HMAPeriod  =  21;
 extern ENUM_APPLIED_PRICE HMAPrice  =  PRICE_CLOSE;
 extern double             HMASpeed  =  2.0;
+extern double               HMAHot  =  1.0;
 extern int                HMAShift  =  0;         // Hull shift
 
 extern string             UniqueID  =  "";  //"Hull SupRes";
@@ -51,12 +52,11 @@ extern bool          AlertsMessage  =  true,   //false,
                        AlertsEmail  =  false,
                       AlertsMobile  =  false;
 extern string            SoundFile  =  "alert.wav";   //"news.wav";  //"expert.wav";  //   //"stops.wav"   //"alert2.wav"   //
-
 //**************************************************************************//
 //***                                                                      ***
 //**************************************************************************//
 double hma[], hmada[], hmadb[], work[], trend[];
-int HalfPeriod, HullPeriod, MTF, LSH, SGB;
+int HalfPeriod, HullPeriod, MTF, LSH, SGB, MAX;
 string IndikName, PREF;  bool returnBars;  datetime TimeBar=0;
 //**************************************************************************//
 //***                                                                      ***
@@ -65,9 +65,9 @@ int init()
 {
    HMAPeriod  = fmax(HMAPeriod,2);
    HalfPeriod = floor(HMAPeriod/HMASpeed);
-   HullPeriod = floor(sqrt(HMAPeriod));
+   HullPeriod = floor(sqrt(HMAPeriod*HMAHot));   MAX = HMAPeriod+HalfPeriod+HullPeriod;
 
-      TimeFrame = fmax(TimeFrame,_Period);      LSH = -LinesShift;    SGB = SIGNALBAR;
+      TimeFrame = fmax(TimeFrame,_Period);       LSH = -LinesShift;    SGB = SIGNALBAR;
 
          if (TimeFrame>_Period) MTF = TimeFrame;
          else
@@ -82,21 +82,21 @@ int init()
    returnBars = MTF==-99;
 
    IndicatorBuffers(5);
-      SetIndexBuffer(0,hma);     SetIndexLabel(0,stringMTF(MTF)+": HMA ["+(string)HMAPeriod+"*"+DoubleToStr(HMASpeed,1)+"]");
+      SetIndexBuffer(0,hma);     SetIndexLabel(0,stringMTF(MTF)+": HMA ["+(string)HMAPeriod+"*"+DoubleToStr(HMASpeed,1)+"*"+DoubleToStr(HMAHot,1)+"]");
       SetIndexBuffer(1,hmada);   SetIndexLabel(1,NULL);
       SetIndexBuffer(2,hmadb);   SetIndexLabel(2,NULL);
       SetIndexBuffer(3,trend);
       SetIndexBuffer(4,work);
-
-   for (int i=0; i<indicator_buffers; i++) {
+//---
+   for (int i=0; i<indicator_buffers; i++) //{
         SetIndexStyle(i,DRAW_LINE);
-        SetIndexShift(i,HMAShift*MTF/_Period); }
+        //SetIndexShift(i,HMAShift*MTF/_Period); }
 
 //------ "короткое имя" для DataWindow и подокна индикатора + и/или "уникальное имя индикатора"
-   IndicatorShortName(stringMTF(MTF)+": HMA M22 ["+(string)HMAPeriod+"*"+DoubleToStr(HMASpeed,1)+"]");
+   IndicatorShortName(stringMTF(MTF)+": HMA M22 ["+(string)HMAPeriod+"*"+DoubleToStr(HMASpeed,1)+"*"+DoubleToStr(HMAHot,1)+"]");
    //------
    if (UniqueID!="") PREF = UniqueID;
-   else PREF = stringMTF(MTF)+": HMA M22 ["+(string)HMAPeriod+"*"+DoubleToStr(HMASpeed,1)+"]  ";
+   else PREF = stringMTF(MTF)+": HMA M22 ["+(string)HMAPeriod+"*"+DoubleToStr(HMASpeed,1)+"*"+DoubleToStr(HMAHot,1)+"]  ";
 //**************************************************************************//
 //------
 return(0);
@@ -124,6 +124,12 @@ int start()
       if (CountedBars>0) CountedBars--;
          int limit=fmin(Bars-CountedBars,Bars-1);
          if (returnBars) { hma[0] = fmin(limit+1,Bars-1); return(0); }
+   //---
+   for (i=0; i<5; i++) {
+        SetIndexEmptyValue(i,0.0);             //--- значение 0 отображаться не будет
+        SetIndexEmptyValue(i,EMPTY_VALUE);     //--- значение 0 отображаться не будет
+        SetIndexShift(i,HMAShift*MTF/_Period); //--- установка сдвига линий при отрисовке
+        SetIndexDrawBegin(i,MAX*1); }          //--- пропуск отрисовки первых баров
 //**************************************************************************//
 //**************************************************************************//
 
@@ -175,7 +181,7 @@ int start()
        string messageUP = WindowExpertName()+":  "+_Symbol+", "+stringMTF(_Period)+"  >>  HMA trend UP  >>  BUY";   /// +sufix;
        string messageDN = WindowExpertName()+":  "+_Symbol+", "+stringMTF(_Period)+"  <<  HMA trend DN  <<  SELL";   /// +sufix;
      //------
-       if (TimeBar!=Time[0] &&  (hma[SGB] > hma[1+SGB] && hma[1+SGB] <= hma[2+SGB])) {
+       if (TimeBar!=Time[0] &&  hma[SGB] > hma[1+SGB] && hma[1+SGB] <= hma[2+SGB]) {
            if (AlertsMessage) Alert(messageUP);
            if (AlertsEmail)   SendMail(_Symbol,messageUP);
            if (AlertsMobile)  SendNotification(messageUP);
@@ -183,7 +189,7 @@ int start()
            TimeBar=Time[0]; } //return(0);
      //------
        else
-       if (TimeBar!=Time[0] &&  (hma[SGB] < hma[1+SGB] && hma[1+SGB] >= hma[2+SGB])) {
+       if (TimeBar!=Time[0] &&  hma[SGB] < hma[1+SGB] && hma[1+SGB] >= hma[2+SGB]) {
            if (AlertsMessage) Alert(messageDN);
            if (AlertsEmail)   SendMail(_Symbol,messageDN);
            if (AlertsMobile)  SendNotification(messageDN);
@@ -204,8 +210,8 @@ int start()
    for (i=limit; i>=0; i--)
     {
      int y = iBarShift(NULL,MTF,Time[i]);          //"calculateValue"
-        trend[i] = iCustom(NULL,MTF,IndikName,PERIOD_CURRENT,MTF,Interpolate,HMAPeriod,HMAPrice,HMASpeed,0,UniqueID,LinesNumber,LinesShift,RayRight,LinesSize,ColorUP,ColorDN,SIGNALBAR,AlertsMessage,AlertsSound,AlertsEmail,AlertsMobile,SoundFile,0,3,y);
-        hma[i]   = iCustom(NULL,MTF,IndikName,PERIOD_CURRENT,MTF,Interpolate,HMAPeriod,HMAPrice,HMASpeed,0,UniqueID,LinesNumber,LinesShift,RayRight,LinesSize,ColorUP,ColorDN,SIGNALBAR,AlertsMessage,AlertsSound,AlertsEmail,AlertsMobile,SoundFile,0,0,y);
+        trend[i] = iCustom(NULL,MTF,IndikName,PERIOD_CURRENT,MTF,Interpolate,HMAPeriod,HMAPrice,HMASpeed,HMAHot,0,UniqueID,LinesNumber,LinesShift,RayRight,LinesSize,ColorUP,ColorDN,SIGNALBAR,AlertsMessage,AlertsSound,AlertsEmail,AlertsMobile,SoundFile,0,3,y);
+        hma[i]   = iCustom(NULL,MTF,IndikName,PERIOD_CURRENT,MTF,Interpolate,HMAPeriod,HMAPrice,HMASpeed,HMAHot,0,UniqueID,LinesNumber,LinesShift,RayRight,LinesSize,ColorUP,ColorDN,SIGNALBAR,AlertsMessage,AlertsSound,AlertsEmail,AlertsMobile,SoundFile,0,0,y);
         hmada[i] = EMPTY_VALUE;
         hmadb[i] = EMPTY_VALUE;
    //------  ////"новый вариант" от mladen'a == Quadratic лучше сглаживает....
@@ -326,7 +332,7 @@ string stringMTF(int perMTF)
    if (perMTF== 2 || 3  || 4  || 6  || 7  || 8  || 9 ||       /// нестандартные периоды для грфиков Renko
                10 || 11 || 12 || 13 || 14 || 16 || 17 || 18)  return("M"+(string)_Period);
 //------
-   return("Ошибка периода");
+   return("Period error!");   //return("Ошибка периода");
 }
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 //%%%                            StochMC AA MTF TT                         %%%
