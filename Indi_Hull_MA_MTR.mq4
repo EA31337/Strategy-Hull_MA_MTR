@@ -2,7 +2,7 @@
 //+++                      Hull Master 22 Next MTF                         +++
 //+++======================================================================+++
 #property copyright   "©  www.forex-tsd.com  &&  Tankk,  8  October  2018,  http://forexsystemsru.com"
-#property link        "https://forexsystemsru.com/threads/indikatory-sobranie-sochinenij-tankk.86203/"  ////https://forexsystemsru.com/forums/indikatory-foreks.41/   ///"http://www.fxmag.ru/mag/104/"
+#property link        "https://forexsystemsru.com/threads/indikatory-sobranie-sochinenij-tankk.86203/page-7#post-1350217"
 #property description "Скользящая средняя Хала [HullMA] почти устраняет задержку в целом, и в то же самое"
 #property description "время улучшает сглаживание. HullMA умеет не отставать от быстрых изменений ценовой"
 #property description "динамики при наличии превосходного сглаживания SMA за тот же самый период."
