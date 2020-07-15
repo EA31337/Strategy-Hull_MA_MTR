@@ -64,6 +64,7 @@ string IndikName, PREF;  bool returnBars;  datetime TimeBar=0;
 //**************************************************************************//
 int init()
 {
+  Print("Initialized");
    HMAPeriod  = fmax(HMAPeriod,2);
    HalfPeriod = floor(HMAPeriod/HMASpeed);
    HullPeriod = floor(sqrt(HMAPeriod*HMAHot));   MAX = HMAPeriod+HalfPeriod+HullPeriod;
@@ -120,6 +121,7 @@ void deleteLines()
 //**************************************************************************//
 int start()
 {
+  Print("Started");
    int i, CountedBars = IndicatorCounted();
       if (CountedBars<0) return(-1);
       if (CountedBars>0) CountedBars--;
