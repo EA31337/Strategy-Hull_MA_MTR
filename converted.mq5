@@ -1,3 +1,13 @@
+#include "MT4to5.mq5"
+
+//#property strict
+
+#include <EA31337-classes/Indicators/Indi_MA.mqh>
+#include <EA31337-classes/DateTime.mqh>
+#property indicator_buffers 5
+#property indicator_plots 5
+
+
 //+++======================================================================+++
 //+++                      Hull Master 22 Next MTF                         +++
 //+++======================================================================+++
@@ -10,7 +20,7 @@
 #property version  "3.39" // Previous: "2.22"
 
 #property indicator_chart_window
-#property indicator_buffers 2
+
 //------
 #property indicator_color1  clrLimeGreen
 #property indicator_color2  clrRed  // Crimson
@@ -59,17 +69,43 @@ extern string            SoundFile  =  "alert.wav";   //"news.wav";  //"expert.w
 double hma[], hmada[], hmadb[], work[], trend[];
 int HalfPeriod, HullPeriod, MTF, LSH, SGB, MAX;
 string IndikName, PREF;  bool returnBars;  datetime TimeBar=0;
+
+string GetRelativeProgramPath()
+  {
+   int pos2;
+//--- get the absolute path to the application
+   string path=MQLInfoString(MQL_PROGRAM_PATH);
+//--- find the position of "\MQL5\" substring
+   int    pos =StringFind(path,"\\MQL5\\");
+//--- substring not found - error
+   if(pos<0)
+      return(NULL);
+//--- skip "\MQL5" directory
+   pos+=5;
+//--- skip extra '\' symbols
+   while(StringGetCharacter(path,pos+1)=='\\')
+      pos++;
+//--- if this is a resource, return the path relative to MQL5 directory
+   if(StringFind(path,"::",pos)>=0)
+      return(StringSubstr(path,pos));
+//--- find a separator for the first MQL5 subdirectory (for example, MQL5\Indicators)
+//--- if not found, return the path relative to MQL5 directory
+   if((pos2=StringFind(path,"\\",pos+1))<0)
+      return(StringSubstr(path,pos));
+//--- return the path relative to the subdirectory (for example, MQL5\Indicators)
+   return(StringSubstr(path,pos2+1));
+  }
+  
+
 //**************************************************************************//
 //***                                                                      ***
 //**************************************************************************//
-int init()
-{
-  Print("Initialized");
-   HMAPeriod  = fmax(HMAPeriod,2);
+int OnInit() {
+//   HMAPeriod  = fmax(HMAPeriod,2);
    HalfPeriod = floor(HMAPeriod/HMASpeed);
    HullPeriod = floor(sqrt(HMAPeriod*HMAHot));   MAX = HMAPeriod+HalfPeriod+HullPeriod;
 
-      TimeFrame = fmax(TimeFrame,_Period);       LSH = -LinesShift;    SGB = SIGNALBAR;
+      /*TimeFrame = fmax(TimeFrame,_Period);*/       LSH = -LinesShift;    SGB = SIGNALBAR;
 
          if (TimeFrame>_Period) MTF = TimeFrame;
          else
@@ -80,17 +116,27 @@ int init()
            if (TimeFrameAuto==3) MTF=NextHigherTF(NextHigherTF(NextHigherTF(_Period)));
           }
 
-   IndikName  = WindowExpertName();
+   IndikName  = GetRelativeProgramPath();
+   
+   Print(IndikName);
+   
    returnBars = MTF==-99;
 
-   IndicatorBuffers(5);
       SetIndexBuffer(0,hma);     SetIndexLabel(0,stringMTF(MTF)+": HMA ["+(string)HMAPeriod+"*"+DoubleToStr(HMASpeed,1)+"*"+DoubleToStr(HMAHot,1)+"]");
-      SetIndexBuffer(1,hmada);   SetIndexLabel(1,NULL);
+      SetIndexBuffer(1,hmada);   SetIndexLabel(1,"bla");
       SetIndexBuffer(2,hmadb);   SetIndexLabel(2,NULL);
       SetIndexBuffer(3,trend);
       SetIndexBuffer(4,work);
+      
+      PlotIndexSetDouble(0,PLOT_EMPTY_VALUE,0.0);
+      PlotIndexSetDouble(1,PLOT_EMPTY_VALUE,0.0);
+      PlotIndexSetDouble(2,PLOT_EMPTY_VALUE,0.0);
+      PlotIndexSetDouble(3,PLOT_EMPTY_VALUE,0.0);
+      PlotIndexSetDouble(4,PLOT_EMPTY_VALUE,0.0);
+      
+      ArrayInitialize(trend, -1);
 //---
-   for (int i=0; i<indicator_buffers; i++) //{
+   for (int i=0; i<5; i++) //{
         SetIndexStyle(i,DRAW_LINE);
         //SetIndexShift(i,HMAShift*MTF/_Period); }
 
@@ -119,21 +165,30 @@ void deleteLines()
 //**************************************************************************//
 //***                                                                      ***
 //**************************************************************************//
-int start()
+
+#ifdef __MQL4__
+  int __tick_count = 0;
+
+  int start () {
+
+    return OnCalculate(rates_total, prev_calculated, begin, price);
+  }
+#endif
+
+  int OnCalculate (const int rates_total, const int prev_calculated, const int begin, const double& price[])
+
 {
 
-  Print("Buffer sizes: ", ArraySize(hma), ", ", ArraySize(hmada), ", ", ArraySize(hmadb), ", ", ArraySize(trend), ", ", ArraySize(work));
-
-  return 0;
-
-   int i, CountedBars = IndicatorCounted();
+//  Print("Buffer sizes: ", ArraySize(hma), ", ", ArraySize(hmada), ", ", ArraySize(hmadb), ", ", ArraySize(trend), ", ", ArraySize(work));
+  
+   int i, CountedBars = (prev_calculated>0 ? prev_calculated-1 : 0);
       if (CountedBars<0) return(-1);
       if (CountedBars>0) CountedBars--;
-         int limit=fmin(Bars-CountedBars,Bars-1);
-         if (returnBars) { hma[0] = fmin(limit+1,Bars-1); return(0); }
-
-    Print("Bars = ", Bars, ", Counted bars: ", CountedBars, ", limit = ", limit);
+         int limit=fmin(Bars(_Symbol, _Period)-CountedBars,Bars(_Symbol, _Period)-1);
+         if (returnBars) { hma[0] = fmin(limit+1,Bars(_Symbol, _Period)-1); return(0); }
          
+    Print("Bars = ", Bars(_Symbol, _Period), ", Counted bars: ", CountedBars, ", limit = ", limit);
+    
    //---
    for (i=0; i<5; i++) {
         SetIndexEmptyValue(i,0.0); //--- value 0 will not be displayed
@@ -145,13 +200,19 @@ int start()
 
    if (MTF==_Period)  //calculateValue ||
     {
-     if (trend[limit]==-1) CleanPoint(limit,hmada,hmadb);
 
-     for (i=limit; i>=0; i--) work[i] = 2.0*iMA(NULL,0,HalfPeriod,0,MODE_LWMA,HMAPrice,i)-iMA(NULL,0,HMAPeriod,0,MODE_LWMA,HMAPrice,i);
+     ArrayCheckAllocateValue(hma, limit + 1);
+     ArrayCheckAllocateValue(hmada, limit + 1);
+     ArrayCheckAllocateValue(hmadb, limit + 1);
+     ArrayCheckAllocateValue(trend, limit + 1);
+   
+     if (ArrayCheckAllocateValue(trend, limit)==-1) CleanPoint(limit,hmada,hmadb);
+
+     for (i=limit; i>=0; i--) work[i] = 2.0*Indi_MA::iMA(NULL,0,HalfPeriod,0,MODE_LWMA,HMAPrice,i)-Indi_MA::iMA(NULL,0,HMAPeriod,0,MODE_LWMA,HMAPrice,i);
 
      for (i=limit; i>=0; i--)
       {
-       hma[i]   = iMAOnArray(work,0,HullPeriod,0,MODE_LWMA,i);
+       hma[i]   = Indi_MA::iMAOnArray(work,0,HullPeriod,0,MODE_LWMA,i);
        hmada[i] = EMPTY_VALUE;
        hmadb[i] = EMPTY_VALUE;
        trend[i] = trend[i+1];
@@ -166,11 +227,11 @@ int start()
      if (LinesNumber>0)
       {
        int k = 0;
-       for (i=0; i<Bars && k<LinesNumber; i++)
+       for (i=0; i<Bars(_Symbol, _Period) && k<LinesNumber; i++)
 
        if (trend[i]!=trend[i+1])
         {
-         string name = PREF+TimeToStr(Time[i+LSH],TIME_DATE|TIME_MINUTES);   //(string)Time[i];
+         string name = PREF+DateTime::TimeToStr(Time[i+LSH],TIME_DATE|TIME_MINUTES);   //(string)Time[i];
          ObjectCreate(name,OBJ_TREND,0,Time[i+LSH],hma[i+LSH],Time[i+LSH]+ PERIOD_D1*60,hma[i+LSH]);
          ObjectSet(name,OBJPROP_SELECTABLE,false);
          ObjectSet(name,OBJPROP_HIDDEN,true);
@@ -213,31 +274,26 @@ int start()
 //***                                                                      ***
 //**************************************************************************//
 
-   limit = fmax(
-    limit,
-    fmin(
-      Bars-1,
-      iCustom(NULL,MTF,IndikName,PERIOD_CURRENT,MTF,0,0)*MTF/_Period
-      )
-    );
-    
-    Print("Trend size = ", ArraySize(trend));
+   double one = Bars(_Symbol, _Period)-1;
+   double two = iCustom(NULL,(ENUM_TIMEFRAMES)MTF,IndikName,PERIOD_CURRENT,MTF,0,0) *MTF/_Period;
 
-   if (trend[limit]==-1) CleanPoint(limit,hmada,hmadb);
+   limit = fmax((double)limit,fmin(one,two));
+
+   if (ArrayCheckAllocateValue(trend, limit)==-1) CleanPoint(limit,hmada,hmadb);
 
    for (i=limit; i>=0; i--)
     {
-     int y = iBarShift(NULL,MTF,Time[i]);          //"calculateValue"
-        trend[i] = iCustom(NULL,MTF,IndikName,PERIOD_CURRENT,MTF,Interpolate,HMAPeriod,HMAPrice,HMASpeed,HMAHot,0,UniqueID,LinesNumber,LinesShift,RayRight,LinesSize,ColorUP,ColorDN,SIGNALBAR,AlertsMessage,AlertsSound,AlertsEmail,AlertsMobile,SoundFile,0,3,y);
-        hma[i]   = iCustom(NULL,MTF,IndikName,PERIOD_CURRENT,MTF,Interpolate,HMAPeriod,HMAPrice,HMASpeed,HMAHot,0,UniqueID,LinesNumber,LinesShift,RayRight,LinesSize,ColorUP,ColorDN,SIGNALBAR,AlertsMessage,AlertsSound,AlertsEmail,AlertsMobile,SoundFile,0,0,y);
+     int y = iBarShift(NULL,(ENUM_TIMEFRAMES)MTF,Time[i]);          //"calculateValue"
+        trend[i] = iCustom(NULL,(ENUM_TIMEFRAMES)MTF,IndikName,PERIOD_CURRENT,MTF,Interpolate,HMAPeriod,HMAPrice,HMASpeed,HMAHot,0,UniqueID,LinesNumber,LinesShift,RayRight,LinesSize,ColorUP,ColorDN,SIGNALBAR,AlertsMessage,AlertsSound,AlertsEmail,AlertsMobile,SoundFile,0,3,y);
+        hma[i]   = iCustom(NULL,(ENUM_TIMEFRAMES)MTF,IndikName,PERIOD_CURRENT,MTF,Interpolate,HMAPeriod,HMAPrice,HMASpeed,HMAHot,0,UniqueID,LinesNumber,LinesShift,RayRight,LinesSize,ColorUP,ColorDN,SIGNALBAR,AlertsMessage,AlertsSound,AlertsEmail,AlertsMobile,SoundFile,0,0,y);
         hmada[i] = EMPTY_VALUE;
         hmadb[i] = EMPTY_VALUE;
    //------  //// "new version" of mladen's  == Quadratic smoothes better...
-      if (Interpolate==0 || (i>0 && y==iBarShift(NULL,MTF,Time[i-1]))) continue;
+      if (Interpolate==0 || (i>0 && y==iBarShift(NULL,(ENUM_TIMEFRAMES)MTF,Time[i-1]))) continue;
           interpolate(hma,MTF,Interpolate,i);
     } // *end of cycle*  for (i=limit; i>=0; i--)
 //**************************************************************************//
-  
+
    for (i=limit; i>=0; i--)  if (trend[i]==-1) PlotPoint(i,hmada,hmadb,hma);
 //**************************************************************************//
 //------
@@ -248,10 +304,10 @@ return(0);
 //**************************************************************************//
 void CleanPoint(int i,double& first[],double& second[])
 {
-   if ((second[i]  != EMPTY_VALUE) && (second[i+1] != EMPTY_VALUE))
+   if ((ArrayCheckAllocateValue(second, i)  != EMPTY_VALUE) && (ArrayCheckAllocateValue(second, i+1) != EMPTY_VALUE))
         second[i+1] = EMPTY_VALUE;
    else
-      if ((first[i] != EMPTY_VALUE) && (first[i+1] != EMPTY_VALUE) && (first[i+2] == EMPTY_VALUE))
+      if ((ArrayCheckAllocateValue(first, i) != EMPTY_VALUE) && (ArrayCheckAllocateValue(first, i+1) != EMPTY_VALUE) && (ArrayCheckAllocateValue(first, i+2) == EMPTY_VALUE))
           first[i+1] = EMPTY_VALUE;
 }
 //**************************************************************************//
@@ -283,19 +339,19 @@ void PlotPoint(int i,double& first[],double& second[],double& from[])
 //**************************************************************************//
 void interpolate(double& target[], int interTF, int interType, int i)
 { //// Taken from Step one more Average 2-3 MTF [garry119]    ////enum Iterpolation { intNO, intLinear, intQuad };
-   int bar = iBarShift(NULL,interTF,Time[i]);
+   int bar = iBarShift(NULL,(ENUM_TIMEFRAMES)interTF,Time[i]);
    double x0=0, x1=1, x2=2, y0=0, y1=0, y2=0;
 //------
    if (interType==intQuad) {
        y0 = target[i];
-       y1 = target[(int)fmin(iBarShift(NULL,0,iTime(NULL,interTF,bar+0))+1,Bars-1)];
-       y2 = target[(int)fmin(iBarShift(NULL,0,iTime(NULL,interTF,bar+1))+1,Bars-1)]; }
+       y1 = target[(int)fmin(iBarShift(NULL,0,iTime(NULL,interTF,bar+0))+1,Bars(_Symbol, _Period)-1)];
+       y2 = target[(int)fmin(iBarShift(NULL,0,iTime(NULL,interTF,bar+1))+1,Bars(_Symbol, _Period)-1)]; }
 //------
    datetime time = iTime(NULL,interTF,bar);
    int n, k;
 //------
-   for(n=1; (i+n)<Bars && Time[i+n]>=time; n++) continue;
-   for(k=1; (i+n)<Bars && (i+k)<Bars && k<n; k++)
+   for(n=1; (i+n)<Bars(_Symbol, _Period) && Time[i+n]>=time; n++) continue;
+   for(k=1; (i+n)<Bars(_Symbol, _Period) && (i+k)<Bars(_Symbol, _Period) && k<n; k++)
 //------
    if (interType==intQuad) {
        double x3 = (double)k/n;

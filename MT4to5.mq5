@@ -5,12 +5,10 @@
   extern int __tick_count;
   
   int ArrayCheckAllocateValue(double& array[], int index, int num_raise = 100) {
-    if (ArraySize(array) <= index) {
-      ArrayResize(array, index + num_raise);
-      ArrayFill(array, index, num_raise, -1);
-      return -1;
+    if (index >= ArraySize(array)) {
+      return EMPTY_VALUE;
     }
-    return array[index];    
+    return array[index];
   }
 
   bool ObjectDelete(string name) {
